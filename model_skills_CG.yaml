@@ -1,0 +1,164 @@
+name: model_skills_CG
+
+symbols:
+
+   exogenous: [z, tau_L, tau_C, c_Tr, p, s, tau_K]
+   states: [K, G, X, B, Tr, CG]
+   controls: [CPN, N, tN, CPH, H]
+   parameters: [beta, delta, eta, zeta, alpha_1, alpha_2, sig_z, nu, KoY, CPHoY, CPNoY, tz, psi_1, psi_2, a, r_B, xi, BoY, rho_Tr, rho_X, Bbar, Xbar, c_X, phi, gamma, c_CGN, c_CGH, rho_CG, c_CG, theta_X, theta_CG, theta_Tr, Gmin, Trbar, CGbar]
+   values: [VN, VH]
+   rewards: [UN, UH]
+
+definitions:
+    Y: exp(z)*K^alpha_1*(N^xi*H^(1-xi))^alpha_2*G^(1-alpha_1-alpha_2)
+    tY: exp(tz)*tN^psi_1*G^psi_2
+    w: alpha_2*xi*Y/N
+    u: alpha_2*(1-xi)*Y/H
+    tw: psi_1*tY/tN
+    tYoY: tY/Y
+    r: alpha_1*Y/K
+    Ytotal: Y+tY
+    L: N+H+tN
+    CGN: c_CGN*CG
+    CGH: c_CGH*CG
+    CN: phi*CPN^((gamma-1)/gamma) + (1-phi)*CGN^((gamma-1)/gamma)
+    CH: phi*CPH^((gamma-1)/gamma) + (1-phi)*CGH^((gamma-1)/gamma)
+#    Tr: c_Tr*Y
+
+    
+equations:
+
+    arbitrage:
+        - CPN*(1+tau_C) - (1-tau_L)*w*N - (1-p*s*tau_L)*tw*tN - Tr | 0 <= CPN <= inf
+        - eta/(1-N-tN) - w*(1-tau_L)*phi*(gamma-1)/(gamma*CPN^(1/gamma)*(phi*CPN^((gamma-1)/gamma)+(1-phi)*CGN^((gamma-1)/gamma))*(1+tau_C)) | 0 <= N <= inf
+        - eta/(1-N-tN) - tw*(1-p*s*tau_L)*phi*(gamma-1)/(gamma*CPN^(1/gamma)*(phi*CPN^((gamma-1)/gamma)+(1-phi)*CGN^((gamma-1)/gamma))*(1+tau_C)) | 0 <= tN <= inf
+        - 1 - beta*CPH^(1/gamma)*(phi*CPH^((gamma-1)/gamma)+(1-phi)*CGH^((gamma-1)/gamma))/(CPH(1)^(1/gamma)*(phi*CPH(1)^((gamma-1)/gamma)+(1-phi)*CGH^((gamma-1)/gamma)))*(1-delta+(1-tau_K(1))*r(1)) | 0 <= CPH <= inf
+        - zeta/(1-H) - u*(1-tau_L)*phi*(gamma-1)/(gamma*CPH^(1/gamma)*(phi*CPH^((gamma-1)/gamma)+(1-phi)*CGH^((gamma-1)/gamma))*(1+tau_C)) | 0 <= H <= inf
+        
+
+    transition:
+        - K = (1-delta)*K(-1) + (1-tau_L(-1))*u(-1)*H(-1) + (1-tau_K(-1))*r(-1)*K(-1) - (1+tau_C(-1))*CPH(-1)
+        - G = (1-nu)*G(-1) + X(-1)
+        - X=(X(-1)/Y(-1))^rho_X*(c_X*Bbar/B(-1))^((1-rho_X)*theta_X)*Y(-1)
+#        - X=(X(-1)/Y(-1))^rho_X*(c_X*Bbar/B(-1)*Gmin/G(-1))^((1-rho_X)*theta_X)*Y(-1)
+        - B = (1+r_B)*B(-1) - tau_L(-1)*(w(-1)*N(-1)+u(-1)*H(-1)+p(-1)*s(-1)*tw(-1)*tN(-1)) - tau_C(-1)*(CPN(-1)+CPH(-1)) + Tr(-1) + a*p(-1)^2 + X(-1) + CG(-1) - tau_K(-1)*r(-1)*K(-1)
+#+xi*(G(-1)-Gmin)^2
+#        - Tr=Tr(-1)^rho_Tr*(Tr(-1)*C_Nsh/(C_N(-1)/Y(-1)))^(1-rho_Tr)
+        - Tr=(Tr(-1)/Y(-1))^rho_Tr*(c_Tr*Bbar/B(-1))^((1-rho_Tr)*theta_Tr)*Y(-1)
+#        - Tr=(Tr(-1)/Y(-1))^rho_Tr*(c_Tr*Bbar/B(-1))^(1-rho_Tr)*Y(-1)
+        - CG=(CG(-1)/Y(-1))^rho_CG*(c_CG*Bbar/B(-1))^((1-rho_CG)*theta_CG)*Y(-1)
+#        - CGN = c_CGN
+#        - CGH = rho_CG*CGH(-1)
+        
+    value:
+        - VN = log(CN)+eta*log(1-N-tN) + beta*VN(1)
+        - VH = log(CH)+zeta*log(1-H) + beta*VH(1)
+    
+    felicity:
+        - UN = log(CN)+eta*log(1-N-tN)
+        - UH = log(CH)+zeta*log(1-H)
+
+calibration:
+
+    # parameters
+    beta: 0.9
+    delta : 0.05
+    nu: 0.04
+    eta: (1-N-tN)*w*(1-tau_L)*phi*(gamma-1)/(gamma*CPN^(1/gamma)*(phi*CPN^((gamma-1)/gamma)+(1-phi)*CGN^((gamma-1)/gamma))*(1+tau_C))
+    zeta: (1-H)*u*(1-tau_L)*phi*(gamma-1)/(gamma*CPH^(1/gamma)*(phi*CPH^((gamma-1)/gamma)+(1-phi)*CGH^((gamma-1)/gamma))*(1+tau_C))
+    alpha_1 : 0.3
+    alpha_2 : 0.6
+    sig_z: 0.0
+#    c_Tr: 0.14
+    psi_1: 0.8
+    psi_2: 0.05
+    xi: 0.6 
+    
+    tau_C: 0.20
+    tau_L: 0.27
+    tau_K: 0.05
+    
+    p: 0.1
+    s: 2
+    a: 1
+    r_B: 0.005
+    c_CGN: 0.67
+    c_CGH: 0.33
+    phi: 0.9
+    gamma: 12
+    rho_X: 0.95
+    rho_Tr: 0.95
+    rho_CG: 0.95
+    theta_X: 0.1
+    theta_CG: 0.1
+    theta_Tr: 0.1
+    
+    Trbar: 0.15
+    CGbar: 0.12
+
+    # endogenous variables
+    N: 0.2
+    H: 0.1
+    tYoY: 0.1
+    BoY: 0.2
+    #Y: a*p^2/0.01
+    Y: 1
+    Tr: Trbar
+    CG: CGbar
+    CGN: c_CGN*CG
+    CGH: c_CGH*CG
+
+    r: (1-beta*(1-delta))/(beta*(1-tau_K))
+    KoY: alpha_1/r
+    K: KoY*Y
+    CPHoY: (-delta*KoY + (1-tau_L)*alpha_2*(1-xi) + (1-tau_K)*alpha_1)/(1+tau_C)
+    CPNoY: ((1-tau_L)*alpha_2*xi + (1-p*s*tau_L)*psi_1*tYoY + Trbar/Y)/(1+tau_C)
+    CPN: CPNoY*Y
+    CPH: CPHoY*Y
+    CN: phi*CPN^((gamma-1)/gamma) + (1-phi)*CGN^((gamma-1)/gamma)
+    
+    tY: tYoY*Y
+    w: alpha_2*xi*Y/N
+    tw: w*(1-tau_L)/(1-p*s*tau_L)
+    tN: psi_1*tY/tw
+    u: alpha_2*(1-xi)*Y/H
+    B: BoY*Y
+    X: tau_L*(w*N+u*H+p*s*tw*tN) + tau_C*(CPN+CPH) - Tr - a*p^2 - r_B*B - CG + tau_K*r*K
+    G: X/nu
+    Gmin: G
+    CH: phi*CPH^((gamma-1)/gamma) + (1-phi)*CGH^((gamma-1)/gamma)
+    #phi: 1
+#    c_X: X/Y
+    Bbar: B
+    c_X: (X/Y)^(1/theta_X)*B/Bbar
+    c_CG: (CG/Y)^(1/theta_CG)*B/Bbar
+    c_Tr: (Tr/Y)^(1/theta_Tr)*B/Bbar
+    Xbar: X
+    VN: (log(CN)+eta*log(1-N-tN))/(1-beta)
+    VH: (log(CH)+zeta*log(1-H))/(1-beta)
+    UN: log(CN)+eta*log(1-N-tN)
+    UH: log(CH)+zeta*log(1-H)
+    
+    z: log(Y/(K^alpha_1*(N^xi*H^(1-xi))^alpha_2*G^(1-alpha_1-alpha_2)))
+    tz: log(tY/(tN^psi_1*G^psi_2))
+    
+    Ytotal: Y+tY
+    L: N+H+tN
+
+exogenous: !Normal
+    Sigma: [[sig_z^2]]
+
+domain: 
+    K: [K*0.5, K*1.5]
+    G: [G*0.5, G*1.5]
+    X: [X*0.5, X*1.5]
+#    c_X: [X*0.5, X*1.5]
+    B: [B*0.5, B*1.5]
+    Tr: [Tr*0.5, Tr*1.5]
+    CG: [CG*0.5, CG*1.5]
+#    CGN: [CGN*0.5, CGN*1.5]
+#    CGH: [CGH*0.5, CGH*1.5]
+
+options:
+    grid: !Cartesian
+        orders: [10,10,10,10,10,10]
