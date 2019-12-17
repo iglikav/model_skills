@@ -1,0 +1,129 @@
+name: model_skills
+
+symbols:
+
+   exogenous: [z, tau, tau_C, c_Tr, p, s]
+   states: [K, G, X, B, Tr]
+   controls: [CN, N, tN, CH, H]
+   parameters: [beta, delta, etan, etah, alpha_1, alpha_2, sig_z, nu, KoY, CHoY, CNoY, tz, psi_1, psi_2, a, r_B, xi, BoY, rho_Tr, rho_X, phi, Bbar, Xbar, c_X]
+   values: [VN, VH]
+   rewards: [UN, UH]
+
+definitions:
+    Y: exp(z)*K^alpha_1*(N^xi*H^(1-xi))^alpha_2*G^(1-alpha_1-alpha_2)
+    tY: exp(tz)*tN^psi_1*G^psi_2
+#    Tr: c_Tr*Y
+#    X: c_X*Y
+    wn: alpha_2*xi*Y/N
+    wh: alpha_2*(1-xi)*Y/H
+    twn: psi_1*tY/tN
+    tYoY: tY/Y
+    r: alpha_1*Y/K
+    Ytotal: Y+tY
+    L: N+H+tN
+    
+equations:
+
+    arbitrage:
+        - CN*(1+tau_C) - (1-tau)*wn*N - (1-p*s*tau)*twn*tN - Tr          | 0 <= CN <= inf
+        - etan/(1-N-tN) - wn*(1-tau)/(CN*(1+tau_C))                      | 0 <= N <= inf
+        - etan/(1-N-tN) - twn*(1-p*s*tau)/(CN*(1+tau_C))                 | 0 <= tN <= inf
+        - 1 - beta*CH/CH(1)*(1-delta+r(1))                                | 0 <= CH <= inf
+        - etah/(1-H) - wh*(1-tau)/(CH*(1+tau_C))                         | 0 <= H <= inf
+        
+
+    transition:
+        - K = (1-delta)*K(-1) + (1-tau(-1))*wh(-1)*H(-1) + r(-1)*K(-1) - (1+tau_C(-1))*CH(-1)
+        - G = (1-nu)*G(-1) + X(-1) 
+        - X=(X(-1)/Y(-1))^rho_X*(c_X*Bbar/B(-1))^(1-rho_X)*Y(-1)
+#        - X=(X(-1)/Xbar)^rho_X*(Bbar/B(-1))^((1-rho_X)*phi)*Xbar
+        - B = (1+r_B)*B(-1) - tau(-1)*(wn(-1)*N(-1)+wh(-1)*H(-1)+p(-1)*s(-1)*twn(-1)*tN(-1)) - tau_C(-1)*(CN(-1)+CH(-1)) + Tr(-1) + a*p(-1)^2 + X(-1)
+#        - Tr=Tr(-1)^rho_Tr*(Tr(-1)*CNsh/(CN(-1)/Y(-1)))^(1-rho_Tr)
+        - Tr=Tr(-1)^rho_Tr*(Tr(-1)*Bbar/B(-1))^(1-rho_Tr)
+        
+    value:
+        - VN = log(CN)+etan*log(1-N-tN) + beta*VN(1)
+        - VH = log(CH)+etah*log(1-H) + beta*VH(1)
+    
+    felicity:
+        - UN = log(CN)+etan*log(1-N-tN)
+        - UH = log(CH)+etah*log(1-H)
+
+calibration:
+
+    # parameters
+    beta: 0.93
+    delta : 0.03
+    etan: wn*(1-N-tN)*(1-tau)/(CN*(1+tau_C))
+    etah: wh*(1-H)*(1-tau)/(CH*(1+tau_C))
+    alpha_1 : 0.35
+    alpha_2 : 0.55
+    sig_z: 0.0
+    c_Tr: 0.15
+    tau_C: 0.2
+    tau: 0.1
+    psi_1: 0.8
+    psi_2: 0.05
+    p: 0.1
+    s: 2
+    a: 1
+    r_B: 0.005
+    rho_X: 0.5
+    rho_Tr: 0.9
+    xi: 0.6
+    nu: 0.02
+    #phi: 0.1
+
+    # endogenous variables
+    N: 0.2
+    H: 0.1
+    tYoY: 0.1
+    BoY: 0.2
+    #Y: a*p^2/0.01
+    Y: 1
+
+    r: (1-beta*(1-delta))/beta
+    KoY: alpha_1/r
+    K: KoY*Y
+    CHoY: (-delta*KoY + (1-tau)*alpha_2*(1-xi) + alpha_1)/(1+tau_C)
+    CNoY: ((1-tau)*alpha_2*xi + (1-p*s*tau)*psi_1*tYoY + c_Tr)/(1+tau_C)
+    CN: CNoY*Y
+    CH: CHoY*Y
+    Tr: c_Tr*Y
+    tY: tYoY*Y
+    wn: alpha_2*xi*Y/N
+    twn: wn*(1-tau)/(1-p*s*tau)
+    tN: psi_1*tY/twn
+    wh: alpha_2*(1-xi)*Y/H
+    B: BoY*Y
+    X: tau*(wn*N+wh*H+p*s*twn*tN) + tau_C*(CN+CH) - Tr - a*p^2 - r_B*B
+    G: X/nu
+    phi: 1
+    c_X: X/Y
+    Bbar: B
+    Xbar: X
+    VN: (log(CN)+etan*log(1-N-tN))/(1-beta)
+    VH: (log(CH)+etah*log(1-H))/(1-beta)
+    UN: log(CN)+etan*log(1-N-tN)
+    UH: log(CH)+etah*log(1-H)
+    
+    z: log(Y/(K^alpha_1*(N^xi*H^(1-xi))^alpha_2*G^(1-alpha_1-alpha_2)))
+    tz: log(tY/(tN^psi_1*G^psi_2))
+    
+    Ytotal: Y+tY
+    L: N+H+tN
+
+exogenous: !Normal
+    Sigma: [[sig_z^2]]
+
+domain:
+    K: [K*0.5, K*1.5]
+    G: [G*0.5, G*1.5]
+    X: [X*0.5, X*1.5]
+#    c_X: [X*0.5, X*1.5]
+    B: [B*0.5, B*1.5]
+    Tr: [Tr*0.5, Tr*1.5]
+
+options:
+    grid: !Cartesian
+        orders: [20,20,20,20,20]
